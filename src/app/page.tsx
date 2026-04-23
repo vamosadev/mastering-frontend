@@ -13,7 +13,7 @@ export default function HomePage() {
   const handleDrop = (e: React.DragEvent, zone: FileZone) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (!file || !file.type.startsWith("audio/")) return;
+    if (!file?.type?.startsWith("audio/")) return;
 
     if (zone === "target") setTargetFile(file);
     if (zone === "reference") setRefFile(file);
@@ -26,7 +26,7 @@ export default function HomePage() {
     if (zone === "reference") setRefFile(file);
   };
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
   const processAudio = async () => {
     if (!targetFile || !refFile) return;
