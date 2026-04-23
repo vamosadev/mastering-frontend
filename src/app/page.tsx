@@ -1,36 +1,137 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+
+type FileZone = "target" | "reference" | null;
 
 export default function HomePage() {
+  const [targetFile, setTargetFile] = useState<File | null>(null);
+  const [refFile, setRefFile] = useState<File | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  const handleDrop = (e: React.DragEvent, zone: FileZone) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith("audio/")) return;
+
+    if (zone === "target") setTargetFile(file);
+    if (zone === "reference") setRefFile(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, zone: FileZone) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (zone === "target") setTargetFile(file);
+    if (zone === "reference") setRefFile(file);
+  };
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const processAudio = async () => {
+    if (!targetFile || !refFile) return;
+
+    setProcessing(true);
+    setDownloadUrl(null);
+
+    const formData = new FormData();
+    formData.append("target", targetFile);
+    formData.append("reference", refFile);
+
+    try {
+      const res = await fetch(`${API_URL}/process`, {
+        method: "POST",
+        body: formData,
+      }).catch(err => {
+        console.error("Fetch error:", err);
+        throw err;
+      });
+
+      if (!res.ok) throw new Error("Processing failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setDownloadUrl(url);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors du processing. Assure-toi que le backend tourne sur localhost:8000");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-      <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-        <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-          Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-        </h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/usage/first-steps"
-            target="_blank"
+    <main className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-8">
+      <h1 className="text-4xl font-light tracking-tight mb-12">
+        <span className="text-orange-500">Master</span>ing
+      </h1>
+
+      <div className="w-full max-w-xl space-y-6">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-400">TARGET (votre son)</p>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, "target")}
+            className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer"
           >
-            <h3 className="text-2xl font-bold">First Steps →</h3>
-            <div className="text-lg">
-              Just the basics - Everything you need to know to set up your
-              database and authentication.
-            </div>
-          </Link>
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/introduction"
-            target="_blank"
-          >
-            <h3 className="text-2xl font-bold">Documentation →</h3>
-            <div className="text-lg">
-              Learn more about Create T3 App, the libraries it uses, and how to
-              deploy it.
-            </div>
-          </Link>
+            <input
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              id="target-input"
+              onChange={(e) => handleFileSelect(e, "target")}
+            />
+            <label htmlFor="target-input" className="cursor-pointer">
+              {targetFile ? (
+                <p className="text-orange-500">{targetFile.name}</p>
+              ) : (
+                <p className="text-gray-500">Drop votre fichier audio</p>
+              )}
+            </label>
+          </div>
         </div>
+
+        <div className="space-y-2">
+          <p className="text-sm text-gray-400">REFERENCE (son cible)</p>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, "reference")}
+            className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center hover:border-orange-500 transition-colors cursor-pointer"
+          >
+            <input
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              id="ref-input"
+              onChange={(e) => handleFileSelect(e, "reference")}
+            />
+            <label htmlFor="ref-input" className="cursor-pointer">
+              {refFile ? (
+                <p className="text-orange-500">{refFile.name}</p>
+              ) : (
+                <p className="text-gray-500">Drop fichier référence</p>
+              )}
+            </label>
+          </div>
+        </div>
+
+        <button
+          onClick={processAudio}
+          disabled={!targetFile || !refFile || processing}
+          className="w-full bg-orange-500 text-black font-medium py-4 rounded-lg hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {processing ? "Processing..." : "Master"}
+        </button>
+
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            download="mastered.wav"
+            className="block w-full bg-green-600 text-white text-center font-medium py-4 rounded-lg hover:bg-green-500"
+          >
+            Download Mastered
+          </a>
+        )}
       </div>
     </main>
   );
